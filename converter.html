@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="id">
+ <head>
+  <meta charset="UTF-8" />
+  <meta
+   name="viewport"
+   content="width=device-width, initial-scale=1.0" />
+  <title>Image Converter</title>
+  <link
+   rel="icon"
+   type="image/x-icon"
+   href="./favicon.ico" />
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+   body {
+    font-family: 'Inter', sans-serif;
+    background: url('./onepiece-bg.jpg') center/cover fixed;
+    position: relative;
+   }
+
+   body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.75);
+    z-index: 0;
+   }
+
+   .content-wrapper {
+    position: relative;
+    z-index: 1;
+   }
+
+   .glass-card {
+    background: rgba(0, 20, 40, 0.85);
+    backdrop-filter: blur(30px) saturate(150%);
+    border: 2px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
+   }
+
+   .upload-area {
+    background: rgba(255, 255, 255, 0.05);
+   }
+
+   .upload-area:hover {
+    background: rgba(255, 255, 255, 0.08);
+   }
+
+   select,
+   input[type='range'] {
+    background: rgba(255, 255, 255, 0.08) !important;
+   }
+
+   select:focus {
+    background: rgba(255, 255, 255, 0.12) !important;
+   }
+
+   .image-item {
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(10px);
+   }
+  </style>
+ </head>
+ <body class="min-h-screen flex items-center bg-blue-900 justify-center p-6">
+  <div class="content-wrapper w-full max-w-4xl">
+   <!-- Logo -->
+   <div class="text-center mb-12">
+    <img
+     src="./onepiece-logo.png"
+     alt="logo"
+     class="w-52 h-32 mx-auto drop-shadow-2xl" />
+    <p
+     class="text-white text-base tracking-widest uppercase mt-4 font-semibold drop-shadow-lg">
+     Image Converter by Reza
+    </p>
+   </div>
+
+   <!-- Main Card -->
+   <div class="glass-card rounded-3xl p-10">
+    <!-- Upload Area -->
+    <div
+     id="uploadArea"
+     class="upload-area border-2 border-dashed border-white/30 rounded-2xl p-16 text-center cursor-pointer hover:border-white/50 transition-all duration-300 mb-8">
+     <div class="text-6xl mb-5 text-white/80">+</div>
+     <h3 class="text-white text-xl mb-3 font-semibold">
+      Drop multiple images here
+     </h3>
+     <p class="text-gray-200 text-sm font-medium">
+      or click to browse • Supports PNG, JPG, WEBP
+     </p>
+     <input
+      type="file"
+      id="fileInput"
+      accept="image/*"
+      multiple
+      class="hidden" />
+    </div>
+
+    <!-- Controls -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+     <!-- Format Select -->
+     <div>
+      <label
+       class="block text-gray-200 text-sm uppercase tracking-wider mb-3 font-semibold"
+       >Output Format</label
+      >
+      <select
+       id="formatSelect"
+       class="w-full px-5 py-4 border-2 border-white/20 rounded-xl text-white focus:outline-none focus:border-white/40 transition-all cursor-pointer">
+       <option
+        value="webp"
+        class="bg-gray-900">
+        WEBP
+       </option>
+       <option
+        value="png"
+        class="bg-gray-900">
+        PNG
+       </option>
+       <option
+        value="jpeg"
+        class="bg-gray-900">
+        JPEG
+       </option>
+      </select>
+     </div>
+
+     <!-- Quality Slider -->
+     <div>
+      <label
+       class="block text-gray-200 text-sm uppercase tracking-wider mb-3 font-semibold"
+       >Quality</label
+      >
+      <input
+       type="range"
+       id="qualityRange"
+       min="70"
+       max="100"
+       value="95"
+       class="w-full h-2 bg-white/20 rounded-lg appearance-none cursor-pointer accent-white" />
+      <div class="text-right text-white text-2xl font-semibold mt-3">
+       <span id="qualityValue">95</span>%
+      </div>
+     </div>
+    </div>
+
+    <!-- Image List -->
+    <div
+     id="imageList"
+     class="space-y-4 mb-6 hidden"></div>
+
+    <!-- Action Buttons -->
+    <div
+     id="actionButtons"
+     class="hidden space-y-3">
+     <button
+      onclick="convertAllImages()"
+      class="w-full py-5 bg-white text-black rounded-xl font-bold uppercase tracking-wide hover:bg-gray-100 transition-all duration-300 hover:shadow-2xl text-base">
+      Convert All Images
+     </button>
+     <button
+      id="downloadAllBtn"
+      onclick="downloadAllImages()"
+      disabled
+      class="w-full py-5 bg-transparent text-white border-2 border-white/30 rounded-xl font-bold uppercase tracking-wide hover:bg-white/10 hover:border-white/50 transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed text-base">
+      Download All (ZIP)
+     </button>
+    </div>
+   </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script>
+   let imageFiles = [];
+   let convertedImages = [];
+
+   const uploadArea = document.getElementById('uploadArea');
+   const fileInput = document.getElementById('fileInput');
+   const imageList = document.getElementById('imageList');
+   const actionButtons = document.getElementById('actionButtons');
+   const qualityRange = document.getElementById('qualityRange');
+   const qualityValue = document.getElementById('qualityValue');
+   const downloadAllBtn = document.getElementById('downloadAllBtn');
+   const formatSelect = document.getElementById('formatSelect');
+
+   qualityRange.addEventListener('input', (e) => {
+    qualityValue.textContent = e.target.value;
+   });
+
+   uploadArea.addEventListener('click', () => fileInput.click());
+
+   fileInput.addEventListener('change', (e) => {
+    handleFiles(Array.from(e.target.files));
+   });
+
+   uploadArea.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    uploadArea.classList.add('border-white/60', 'bg-white/10');
+   });
+
+   uploadArea.addEventListener('dragleave', () => {
+    uploadArea.classList.remove('border-white/60', 'bg-white/10');
+   });
+
+   uploadArea.addEventListener('drop', (e) => {
+    e.preventDefault();
+    uploadArea.classList.remove('border-white/60', 'bg-white/10');
+    handleFiles(Array.from(e.dataTransfer.files));
+   });
+
+   function handleFiles(files) {
+    const validFiles = files.filter((file) => file.type.startsWith('image/'));
+
+    if (validFiles.length === 0) {
+     alert('Please select valid image files');
+     return;
+    }
+
+    imageFiles = validFiles;
+    convertedImages = [];
+    displayImageList();
+    actionButtons.classList.remove('hidden');
+    downloadAllBtn.disabled = true;
+   }
+
+   function displayImageList() {
+    imageList.innerHTML = '';
+    imageList.classList.remove('hidden');
+
+    imageFiles.forEach((file, index) => {
+     const reader = new FileReader();
+     reader.onload = (e) => {
+      const div = document.createElement('div');
+      div.className =
+       'image-item border-2 border-white/20 rounded-xl p-4 flex items-center gap-4';
+      div.innerHTML = `
+                        <img src="${
+                         e.target.result
+                        }" class="w-20 h-20 object-cover rounded-lg border-2 border-white/20" data-index="${index}">
+                        <div class="flex-1">
+                            <div class="text-white font-semibold mb-1 text-base">${
+                             file.name
+                            }</div>
+                            <div class="text-gray-200 text-sm font-medium">${file.type
+                             .split('/')[1]
+                             .toUpperCase()} • ${formatBytes(file.size)}</div>
+                            <div class="text-gray-300 text-xs mt-1 font-medium" id="status-${index}">Ready to convert</div>
+                        </div>
+                        <button onclick="removeImage(${index})" class="text-red-400 hover:text-red-300 text-2xl px-3 font-bold">×</button>
+                    `;
+      imageList.appendChild(div);
+     };
+     reader.readAsDataURL(file);
+    });
+   }
+
+   function removeImage(index) {
+    imageFiles.splice(index, 1);
+    if (imageFiles.length === 0) {
+     imageList.classList.add('hidden');
+     actionButtons.classList.add('hidden');
+    } else {
+     displayImageList();
+    }
+   }
+
+   async function convertAllImages() {
+    const format = formatSelect.value;
+    const quality = qualityRange.value / 100;
+    convertedImages = [];
+
+    for (let i = 0; i < imageFiles.length; i++) {
+     const statusEl = document.getElementById(`status-${i}`);
+     statusEl.textContent = 'Converting...';
+     statusEl.className = 'text-yellow-300 text-xs mt-1 font-semibold';
+
+     try {
+      const converted = await convertImage(imageFiles[i], format, quality);
+      convertedImages.push({
+       name: imageFiles[i].name.split('.')[0] + `_gtimage.${format}`,
+       blob: converted.blob,
+       size: converted.size,
+      });
+
+      const saved = ((1 - converted.size / imageFiles[i].size) * 100).toFixed(
+       1
+      );
+      statusEl.textContent = `Converted: ${formatBytes(
+       converted.size
+      )} • ${saved}% smaller`;
+      statusEl.className = 'text-green-300 text-xs mt-1 font-semibold';
+     } catch (error) {
+      statusEl.textContent = 'Conversion failed';
+      statusEl.className = 'text-red-300 text-xs mt-1 font-semibold';
+     }
+    }
+
+    downloadAllBtn.disabled = false;
+   }
+
+   function convertImage(file, format, quality) {
+    return new Promise((resolve, reject) => {
+     const reader = new FileReader();
+     reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+       const canvas = document.createElement('canvas');
+       canvas.width = img.width;
+       canvas.height = img.height;
+
+       const ctx = canvas.getContext('2d', {
+        alpha: true,
+        desynchronized: false,
+        willReadFrequently: false,
+       });
+
+       ctx.imageSmoothingEnabled = true;
+       ctx.imageSmoothingQuality = 'high';
+       ctx.drawImage(img, 0, 0, img.width, img.height);
+
+       canvas.toBlob(
+        (blob) => {
+         resolve({ blob, size: blob.size });
+        },
+        `image/${format}`,
+        quality
+       );
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+     };
+     reader.onerror = reject;
+     reader.readAsDataURL(file);
+    });
+   }
+
+   async function downloadAllImages() {
+    if (convertedImages.length === 0) return;
+
+    if (convertedImages.length === 1) {
+     const a = document.createElement('a');
+     a.href = URL.createObjectURL(convertedImages[0].blob);
+     a.download = convertedImages[0].name;
+     a.click();
+    } else {
+     const zip = new JSZip();
+     convertedImages.forEach((img) => {
+      zip.file(img.name, img.blob);
+     });
+
+     const content = await zip.generateAsync({ type: 'blob' });
+     const a = document.createElement('a');
+     a.href = URL.createObjectURL(content);
+     a.download = 'gtimage_converted.zip';
+     a.click();
+    }
+   }
+
+   function formatBytes(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+   }
+  </script>
+ </body>
+</html>
